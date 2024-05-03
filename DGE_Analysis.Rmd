@@ -1,0 +1,432 @@
+---
+title: "Identifying Differentially Expressed Genes in response to Exercise training in Mice"
+author: "21BT10024 - Rohan R. Barsagade"
+date: "May 2, 2024"
+output: 
+  html_document: 
+    theme: cerulean
+    self_contained: false
+    keep_md: yes
+    css: styles.css
+---
+
+```{r setup, echo=FALSE}
+if (dir.exists("result/plots")) {
+  unlink("result/plots", recursive = TRUE)
+}
+knitr::opts_chunk$set(fig.path = "result/plots/")
+```
+
+# Introduction
+
+In this study, we downloaded a publicly available gene expression dataset [GSE227516](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE227516){.uri} from Gene Expression Omnibus (GEO) which investigated the effects of exercise on pancreatic islet function in mice. Our aim is to analyze this dataset using DESeq2 to identify genes that show altered expression in response to exercise training.
+
+# Install and Load Packages
+
+```{r warning=F, message=F}
+# Install Required Packages (if not already installed)
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+if (!requireNamespace("DESeq2", quietly = TRUE)) {
+  BiocManager::install("DESeq2")
+}
+if (!requireNamespace("RUVSeq", quietly = TRUE)) {
+  BiocManager::install("RUVSeq")
+}
+if (!requireNamespace("pheatmap", quietly = TRUE)) {
+  BiocManager::install("pheatmap")
+}
+if (!requireNamespace("RColorBrewer", quietly = TRUE)) {
+  BiocManager::install("RColorBrewer")
+}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+if (!requireNamespace("ggrepel", quietly = TRUE)) {
+  install.packages("ggrepel")
+}
+
+# Load Packages
+library(DESeq2)
+library(RUVSeq)
+library(pheatmap)
+library(RColorBrewer)
+library(ggplot2)
+library(ggrepel)
+```
+
+# Data Import
+
+We begin by importing the gene expression counts and sample information. The gene expression counts provide quantitative data on the expression levels of various genes across different samples, while the sample information helps us understand the experimental conditions associated with each sample.
+
+```{r warning=FALSE, message=FALSE}
+# Import Gene Counts
+COUNTS <- read.csv(file="data/GSE227516_counts.csv", header=TRUE, row.names=1)
+head(COUNTS)
+```
+
+```{r}
+# Import Sample Information
+META <- read.csv(file="data/sample_information.csv", header=TRUE)
+head(META)
+```
+
+# Data Preprocessing
+
+Before diving into the analysis, we perform some basic data exploration and cleaning steps. This involves inspecting the structure of the imported data, and ensuring that the data are formatted correctly for further analysis.
+
+```{r}
+# Reorder columns
+COUNTS <- COUNTS[, c("P1", paste0("P", 2:9), "P10")]
+head(COUNTS)
+```
+
+```{r}
+# Rounding off and convert to matrix
+COUNTS <- round(COUNTS)
+COUNTS <- as.matrix(COUNTS)
+```
+
+Dimensions of `COUNTS` matrix are : **`r nrow(COUNTS)`** Rows x **`r ncol(COUNTS)`** Columns
+
+```{r}
+# List unique sample conditions
+unique(META$condition)
+```
+
+# Differential Gene Expression Analysis
+
+## Create DESeq2 Dataset
+
+We create a DESeq2 dataset from the gene expression counts and sample information. This step involves organizing the data into a format suitable for DESeq2 analysis, specifying the experimental design.
+
+```{r warning=FALSE, message=FALSE}
+# Creating DESeq2 Dataset
+dds <- DESeqDataSetFromMatrix(countData = COUNTS, 
+                              colData=META, 
+                              design=~condition)
+```
+
+```{r}
+dim(dds)
+```
+
+## Filtering Low-Count Genes
+
+To improve the quality of our analysis and focus on genes with sufficient expression levels, we filter out genes with low counts. This step helps reduce noise and computational burden in downstream analyses.
+
+```{r}
+# Filtering low count genes
+threshold <- 10
+dds <- dds[ rowMeans(counts(dds)) >= threshold,]
+```
+
+The dimensions of the filtered dataset is: **`r nrow(dds)`** Rows x **`r ncol(dds)`** Columns
+
+## DESeq2 Analysis
+
+We perform differential expression analysis using DESeq2, which includes estimating size factors and dispersion, and fitting the negative binomial model.
+
+```{r warning=FALSE, message=FALSE}
+# DESeq2 Analysis
+prdds <- DESeq(dds)
+prdds
+```
+
+## Normalization and Transformation
+
+Normalization and transformation are crucial steps to account for systematic biases and heterogeneity in sequencing data. We apply size factor estimation, regularized log transformation (rlog), and variance stabilizing transformation (VST) to normalize and transform the expression data. We will perform these steps and visually compare the results to understand their impact on the data.
+
+```{r}
+# Normalization
+norm_counts <- counts(prdds, normalized = TRUE)
+norm_counts <- as.data.frame(norm_counts)
+head(norm_counts)
+```
+
+```{r}
+# Transformation
+mks <- estimateSizeFactors(dds)
+rld <- rlogTransformation(prdds, blind = FALSE)
+vsd <- varianceStabilizingTransformation(dds, blind=FALSE)
+```
+
+### Comparison of Transformations
+
+Let's compare the distributions of the raw counts, rlog transformed data, and VST transformed data using scatter plots and histograms.
+
+```{r scatter_plots, dev='png', fig.show='hide'}
+# Scatter Plots Comparison
+par(mfrow=c(1, 3))
+lims <- c(-2, 20)
+plot(log2(counts(mks, normalized=TRUE)[,1:2] + 1),pch=16, cex=0.3, main="log2(x + 1)", xlim=lims, ylim=lims)
+plot(assay(rld)[,1:2], pch=16, cex=0.3, main="R log", xlim=lims, ylim=lims)
+plot(assay(vsd)[,1:2], pch=16, cex=0.3, main="VST", xlim=lims, ylim=lims)
+```
+
+![](`r knitr::fig_chunk('scatter_plots', 'png')`)
+
+
+```{r hist_plots, dev='png', fig.show='hide'}
+# Histograms Comparison
+par(mfrow=c(1, 3))
+hist(counts(mks))
+hist(assay(rld))
+hist(assay(vsd))
+```
+
+![](`r knitr::fig_chunk('hist_plots', 'png')`)
+
+
+By visually comparing these plots, we can see how the transformations affect the distribution of the data. The RLog Transform is leading to more symmetrical distributions in both the plots.
+
+## Exploratory Data Analysis
+
+Before conducting differential expression analysis, we perform exploratory data analysis (EDA) to assess the quality of the data and explore patterns within the dataset. This includes visualizing sample-to-sample distances, examining dispersion estimates, and conducting principal component analysis (PCA) to identify potential batch effects or sample outliers.
+
+### Heatmap of sample-to-sample distances
+
+```{r s2s_heatmap_plot, dev='png', fig.show='hide'}
+# Sample-to-sample distances
+sample_dist <- dist(t(assay(rld)))
+sample_dist_matrix <- as.matrix(sample_dist)
+colors <- colorRampPalette(rev(brewer.pal(9, "Blues")))(255)
+pheatmap(sample_dist_matrix,
+        clustering_distance_rows=sample_dist,
+        clustering_distance_cols=sample_dist,
+        col=colors,)
+```
+
+![](`r knitr::fig_chunk('s2s_heatmap_plot', 'png')`)
+
+In this heatmap, each row and column represents a sample, and the color intensity in the cell at the intersection of two rows and columns represents the distance between those two samples. Samples that are more similar have a darker color, while samples that are more dissimilar have a lighter color.
+
+### PCA Plot
+
+```{r pca_plot, dev='png', fig.show='hide', message=FALSE, warning=FALSE}
+# PCA Plot
+pca_data <- plotPCA(rld, intgroup = c("condition"), returnData = TRUE)
+ggplot(pca_data, aes(x = PC1, y = PC2)) +
+  geom_point(size = 2, aes(color = condition)) +
+  geom_text_repel(aes(label = rownames(pca_data)), nudge_x = 0, nudge_y = 0) +
+  xlab(paste0("PC1: ", round(attr(pca_data, "percentVar")[1], 2) * 100, "% variance")) +
+  ylab(paste0("PC2: ", round(attr(pca_data, "percentVar")[2], 2) * 100, "% variance"))
+```
+
+![](`r knitr::fig_chunk('pca_plot', 'png')`)
+
+Samples from the sedentary condition (P1, P2, P3, P4, and P5) are more spread out on the left side of the plot. This suggests that there is more variation in gene expression among these samples compared to the exercise samples. P3, P4, and P5 appear closer together, while P1 and P2 are more separate. This could indicate that there are subgroups within the sedentary condition with distinct gene expression patterns. Samples from the exercise condition (P6, P7, P8, P9, and P10) cluster together on the right side of the plot. This indicates that these samples have similar gene expression profiles. 
+
+We can conclude that ***exercise induces a strong and consistent change in gene expression***. This could be due to the activation of specific biological pathways in response to exercise.
+
+### Dispersion Plot
+
+In the Dispersion Plot, the x-axis represents the mean of normalized counts, which is a measure of how much a gene is expressed on average across samples. The y-axis represents dispersion, which is a measure of how much the counts vary across samples. The red curve in the plot is a fitted model that tries to explain the relationship between the mean of normalized counts and dispersion. 
+
+```{r dispersion_plot, dev='png', fig.show='hide', }
+# Dispersion Plot
+plotDispEsts(prdds, main = "Dispersion plot", 
+  genecol="gray20", fitcol="red", 
+  finalcol="dodgerblue3" 
+) 
+```
+
+![](`r knitr::fig_chunk('dispersion_plot', 'png')`)
+
+The dispersion plot shows the expected behavior. At low gene counts, the dispersion is high ***(around 1e+00)*** and tends to decrease at higher gene counts, ultimately becoming stable ***(around 1e-02)***.
+
+## Differential Expression Testing
+
+Using DESeq2, we conduct differential expression testing to identify genes that exhibit significant changes in expression levels between experimental conditions. We set a significance threshold (alpha) and perform statistical tests to determine differential expression, taking into account factors such as fold change and adjusted p-values.
+
+```{r}
+# DESeq2 Result
+res05 <- results(prdds, alpha = 0.05)
+res05 <- na.omit(res05)
+```
+```{r}
+# Order by adjusted p-value
+res05ordered <- res05[order(res05$padj),]
+head(as.data.frame(res05ordered))
+```
+
+## Visualization
+
+We visualize the results of our analysis using various plots, including MA plots, volcano plots, and heatmaps. These visualizations help us identify differentially expressed genes (DEGs) and gain insights into the biological significance of the findings.
+
+### MA Plot
+
+The MA plot shows the relationship between the mean of normalized counts (average expression level) and the log2 fold change (log2FC) for each gene. A positive log2FC indicates that the gene is upregulated in the second condition, while a negative log2FC indicates that the gene is downregulated.
+
+The grey dots represent genes that are not statistically significant (adjusted p-value > 0.05), while the blue dots represent genes that are statistically significant (adjusted p-value <= 0.05).
+
+```{r ma_plot, dev='png', fig.show='hide', }
+# MA Plot
+DESeq2::plotMA(
+  res05, 
+  main="Sedentary vs Exercise, alpha=0.05", 
+  ylim=c(-5,10),
+  cex=0.5, 
+  colNonSig=adjustcolor("gray20", alpha.f=0.5), 
+  colSig=adjustcolor("dodgerblue3", alpha.f=0.5) 
+)
+abline(h = 1, col = '#ff0000' , lwd = 1)
+abline(h = -1, col= '#ff0000', lwd = 1)
+```
+
+![](`r knitr::fig_chunk('ma_plot', 'png')`)
+
+Based on the plot, it appears that there are **more genes that are up-regulated and few genes are down-regulated in the exercise condition compared to the sedentary condition**. This is because there are a lot of blue dots in the positive log2 fold change region of the plot, and very few blue dots in the negative log2 fold change region.
+
+### Volcano Plot
+
+The x-axis of a volcano plot shows the log2 fold change of a gene, which is the magnitude of the change in expression between the two conditions. The y-axis shows the -log10 of the adjusted p-value, which is a measure of the statistical significance of the change in expression. Genes with higher fold changes and lower p-values are considered to be more differentially expressed.
+
+```{r volcano_plot, dev='png', fig.show='hide', }
+# Volcano Plot
+res05$gene_status <- ifelse(
+  res05$padj < 0.05, 
+  ifelse(
+    res05$log2FoldChange > 1, 
+    "Up-Regulated",
+    ifelse(
+      res05$log2FoldChange < -1, 
+      "Down-Regulated", 
+      "Non-significant"
+      )
+    ), 
+  "Non-significant"
+)
+
+ggplot(
+  res05, 
+  aes(x = log2FoldChange, y = -log10(padj), color = factor(gene_status))
+) +
+  geom_point(size = 1, alpha = 0.7) +
+  scale_color_manual(values = brewer.pal(3, "Set1")) +
+  theme_minimal() +
+  ggtitle("Volcano Plot of Differentially Expressed Genes") +
+  xlab("log2 Fold Change") +
+  ylab("-log10(Adjusted p-value)") +
+  theme(legend.title = element_blank()) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed")
+
+```
+
+![](`r knitr::fig_chunk('volcano_plot', 'png')`)
+
+The red dots represent genes that are statistically significantly downregulated, the green dots represent genes that are statistically significantly upregulated, and the blue dots represent genes that are not statistically significant.
+
+# Results
+
+## Identification of Significant Differentially Expressed (DE) Genes
+
+We can now identify significant differentially expressed genes based on statistical analysis. Genes with an adjusted p-value (padj) less than 0.05 and an absolute log2 fold change greater than 1 are considered significant DE genes. 
+
+### Significant Differentially Expressed Genes
+
+```{r}
+sig_genes <- as.data.frame(res05[res05$padj < 0.05 & abs(res05$log2FoldChange) > 1, ])
+head(sig_genes)
+```
+
+We have identified a subset of genes that exhibit significant changes in expression levels under the experimental conditions. Let's proceed by separating these genes into upregulated and downregulated categories.
+
+### Significant Up Regulated Genes
+
+Genes displaying a positive log2FoldChange are classified as upregulated, indicating an increase in expression levels following exercise training
+
+```{r}
+up_genes <- subset(sig_genes, log2FoldChange > 0)
+head(up_genes)
+```
+
+### Significant Down Regulated Genes
+
+Genes exhibiting a negative log2FoldChange are categorized as downregulated, suggesting a decrease in expression levels post-exercise.
+
+```{r}
+down_genes <- subset(sig_genes,log2FoldChange < 0)
+head(down_genes)
+```
+
+## Heatmap of top differentially expressed genes
+
+:::: {style="display: flex; gap: 36px"}
+
+::: {}
+
+### Top 10 Up Regulated Genes
+
+```{r upreg_heatmap, dev='png', fig.show='hide', }
+top_up <- head(up_genes[order(up_genes$log2FoldChange, decreasing = TRUE), ], 10)
+top_up_exp <- assay(rld)[rownames(top_up), ]
+pheatmap(top_up_exp,
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         scale = "row",
+         show_colnames = TRUE,
+         col=brewer.pal(name="RdBu", n=11),
+         main = "Top Up Regulated Genes Heatmap")
+```
+
+![](`r knitr::fig_chunk('upreg_heatmap', 'png')`)
+
+:::
+
+::: {}
+
+### Top 10 Down Regulated Genes
+
+```{r downreg_heatmap, dev='png', fig.show='hide', }
+top_down <- head(down_genes[order(down_genes$log2FoldChange, decreasing = TRUE), ], 10)
+top_down_exp <- assay(rld)[rownames(top_down), ]
+pheatmap(top_down_exp,
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         scale = "row",
+         show_colnames = TRUE,
+         col=brewer.pal(name="RdBu", n=11),
+         main = "Top Down Regulated Genes Heatmap")
+```
+
+![](`r knitr::fig_chunk('downreg_heatmap', 'png')`)
+
+:::
+
+::::
+
+# Conclusion
+
+```{r}
+n_total <- nrow(COUNTS)
+n_de_genes <- nrow(sig_genes)
+n_up_genes <- nrow(up_genes)
+n_down_genes <- nrow(down_genes)
+```
+
+Our analysis of the [GSE227516 Dataset](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE227516){.uri} provided insights into the molecular changes occurring in pancreatic islet function following exercise training in mice.
+
+We analyzed a total of **`r n_total` genes**, out of which **`r n_de_genes` genes** exhibited significant differential expression post-exercise. This means their expression levels were significantly different between the compared groups. Among the DE genes, **`r n_up_genes` genes**  were upregulated, indicating increased expression levels,while **`r n_down_genes` genes** were downregulated, suggesting decreased expression levels.
+
+We can now save these significant genes along with their regulation status in a separate file.
+
+```{r}
+# Combine significant genes with their categories
+sig_genes$gene_status <- ifelse(sig_genes$log2FoldChange > 0, "Up-Regulated", "Down-Regulated")
+sig_genes$gene_id <- rownames(sig_genes)
+
+# Write the data frame to a file
+if (!file.exists("result")) {
+  dir.create("result")
+}
+
+write.table(sig_genes, file = "result/significant_DE_genes.csv", sep = ",", row.names = FALSE)
+```
+
+# Session Summary
+```{r}
+sessionInfo()
+```
