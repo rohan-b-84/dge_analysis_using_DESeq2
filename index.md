@@ -19,7 +19,7 @@ In this study, we downloaded a publicly available gene expression dataset [GSE22
 # Install and Load Packages
 
 
-```r
+```{.r .code}
 # Install Required Packages (if not already installed)
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
@@ -57,13 +57,13 @@ library(ggrepel)
 We begin by importing the gene expression counts and sample information. The gene expression counts provide quantitative data on the expression levels of various genes across different samples, while the sample information helps us understand the experimental conditions associated with each sample.
 
 
-```r
+```{.r .code}
 # Import Gene Counts
 COUNTS <- read.csv(file="data/GSE227516_counts.csv", header=TRUE, row.names=1)
 head(COUNTS)
 ```
 
-```
+```code
 ##                      P1  P10   P2   P3   P4   P5   P6  P7   P8   P9
 ## ENSMUSG00000000001 1755 1226 2333 1330 1507 1287 1081 853 1108 1038
 ## ENSMUSG00000000003    0    0    0    0    0    0    0   0    0    0
@@ -74,13 +74,13 @@ head(COUNTS)
 ```
 
 
-```r
+```{.r .code}
 # Import Sample Information
 META <- read.csv(file="data/sample_information.csv", header=TRUE)
 head(META)
 ```
 
-```
+```code
 ##   sample condition
 ## 1     P1 sedentary
 ## 2     P2 sedentary
@@ -95,13 +95,13 @@ head(META)
 Before diving into the analysis, we perform some basic data exploration and cleaning steps. This involves inspecting the structure of the imported data, and ensuring that the data are formatted correctly for further analysis.
 
 
-```r
+```{.r .code}
 # Reorder columns
 COUNTS <- COUNTS[, c("P1", paste0("P", 2:9), "P10")]
 head(COUNTS)
 ```
 
-```
+```code
 ##                      P1   P2   P3   P4   P5   P6  P7   P8   P9  P10
 ## ENSMUSG00000000001 1755 2333 1330 1507 1287 1081 853 1108 1038 1226
 ## ENSMUSG00000000003    0    0    0    0    0    0   0    0    0    0
@@ -112,7 +112,7 @@ head(COUNTS)
 ```
 
 
-```r
+```{.r .code}
 # Rounding off and convert to matrix
 COUNTS <- round(COUNTS)
 COUNTS <- as.matrix(COUNTS)
@@ -121,12 +121,12 @@ COUNTS <- as.matrix(COUNTS)
 Dimensions of `COUNTS` matrix are : **52178** Rows x **10** Columns
 
 
-```r
+```{.r .code}
 # List unique sample conditions
 unique(META$condition)
 ```
 
-```
+```code
 ## [1] "sedentary" "exercise"
 ```
 
@@ -137,7 +137,7 @@ unique(META$condition)
 We create a DESeq2 dataset from the gene expression counts and sample information. This step involves organizing the data into a format suitable for DESeq2 analysis, specifying the experimental design.
 
 
-```r
+```{.r .code}
 # Creating DESeq2 Dataset
 dds <- DESeqDataSetFromMatrix(countData = COUNTS, 
                               colData=META, 
@@ -145,11 +145,11 @@ dds <- DESeqDataSetFromMatrix(countData = COUNTS,
 ```
 
 
-```r
+```{.r .code}
 dim(dds)
 ```
 
-```
+```code
 ## [1] 52178    10
 ```
 
@@ -158,7 +158,7 @@ dim(dds)
 To improve the quality of our analysis and focus on genes with sufficient expression levels, we filter out genes with low counts. This step helps reduce noise and computational burden in downstream analyses.
 
 
-```r
+```{.r .code}
 # Filtering low count genes
 threshold <- 10
 dds <- dds[ rowMeans(counts(dds)) >= threshold,]
@@ -171,13 +171,13 @@ The dimensions of the filtered dataset is: **15563** Rows x **10** Columns
 We perform differential expression analysis using DESeq2, which includes estimating size factors and dispersion, and fitting the negative binomial model.
 
 
-```r
+```{.r .code}
 # DESeq2 Analysis
 prdds <- DESeq(dds)
 prdds
 ```
 
-```
+```code
 ## class: DESeqDataSet 
 ## dim: 15563 10 
 ## metadata(1): version
@@ -194,14 +194,14 @@ prdds
 Normalization and transformation are crucial steps to account for systematic biases and heterogeneity in sequencing data. We apply size factor estimation, regularized log transformation (rlog), and variance stabilizing transformation (VST) to normalize and transform the expression data. We will perform these steps and visually compare the results to understand their impact on the data.
 
 
-```r
+```{.r .code}
 # Normalization
 norm_counts <- counts(prdds, normalized = TRUE)
 norm_counts <- as.data.frame(norm_counts)
 head(norm_counts)
 ```
 
-```
+```code
 ##                            P1         P2         P3         P4         P5
 ## ENSMUSG00000000001 1904.05489 2266.27915 1294.78609 1173.74110 1113.61972
 ## ENSMUSG00000000028  110.66302  118.51095   58.41140   44.39499   65.76154
@@ -219,7 +219,7 @@ head(norm_counts)
 ```
 
 
-```r
+```{.r .code}
 # Transformation
 mks <- estimateSizeFactors(dds)
 rld <- rlogTransformation(prdds, blind = FALSE)
@@ -231,7 +231,7 @@ vsd <- varianceStabilizingTransformation(dds, blind=FALSE)
 Let's compare the distributions of the raw counts, rlog transformed data, and VST transformed data using scatter plots and histograms.
 
 
-```r
+```{.r .code}
 # Scatter Plots Comparison
 par(mfrow=c(1, 3))
 lims <- c(-2, 20)
@@ -244,7 +244,7 @@ plot(assay(vsd)[,1:2], pch=16, cex=0.3, main="VST", xlim=lims, ylim=lims)
 
 
 
-```r
+```{.r .code}
 # Histograms Comparison
 par(mfrow=c(1, 3))
 hist(counts(mks))
@@ -264,7 +264,7 @@ Before conducting differential expression analysis, we perform exploratory data 
 ### Heatmap of sample-to-sample distances
 
 
-```r
+```{.r .code}
 # Sample-to-sample distances
 sample_dist <- dist(t(assay(rld)))
 sample_dist_matrix <- as.matrix(sample_dist)
@@ -282,7 +282,7 @@ In this heatmap, each row and column represents a sample, and the color intensit
 ### PCA Plot
 
 
-```r
+```{.r .code}
 # PCA Plot
 pca_data <- plotPCA(rld, intgroup = c("condition"), returnData = TRUE)
 ggplot(pca_data, aes(x = PC1, y = PC2)) +
@@ -303,7 +303,7 @@ We can conclude that ***exercise induces a strong and consistent change in gene 
 In the Dispersion Plot, the x-axis represents the mean of normalized counts, which is a measure of how much a gene is expressed on average across samples. The y-axis represents dispersion, which is a measure of how much the counts vary across samples. The red curve in the plot is a fitted model that tries to explain the relationship between the mean of normalized counts and dispersion. 
 
 
-```r
+```{.r .code}
 # Dispersion Plot
 plotDispEsts(prdds, main = "Dispersion plot", 
   genecol="gray20", fitcol="red", 
@@ -320,19 +320,19 @@ The dispersion plot shows the expected behavior. At low gene counts, the dispers
 Using DESeq2, we conduct differential expression testing to identify genes that exhibit significant changes in expression levels between experimental conditions. We set a significance threshold (alpha) and perform statistical tests to determine differential expression, taking into account factors such as fold change and adjusted p-values.
 
 
-```r
+```{.r .code}
 # DESeq2 Result
 res05 <- results(prdds, alpha = 0.05)
 res05 <- na.omit(res05)
 ```
 
-```r
+```{.r .code}
 # Order by adjusted p-value
 res05ordered <- res05[order(res05$padj),]
 head(as.data.frame(res05ordered))
 ```
 
-```
+```code
 ##                      baseMean log2FoldChange     lfcSE      stat       pvalue
 ## ENSMUSG00000066687  154.79197      -4.649220 0.4674371 -9.946194 2.620137e-23
 ## ENSMUSG00000111202  681.51463      -2.146136 0.2539254 -8.451838 2.867535e-17
@@ -360,7 +360,7 @@ The MA plot shows the relationship between the mean of normalized counts (averag
 The grey dots represent genes that are not statistically significant (adjusted p-value > 0.05), while the blue dots represent genes that are statistically significant (adjusted p-value <= 0.05).
 
 
-```r
+```{.r .code}
 # MA Plot
 DESeq2::plotMA(
   res05, 
@@ -383,7 +383,7 @@ Based on the plot, it appears that there are **more genes that are up-regulated 
 The x-axis of a volcano plot shows the log2 fold change of a gene, which is the magnitude of the change in expression between the two conditions. The y-axis shows the -log10 of the adjusted p-value, which is a measure of the statistical significance of the change in expression. Genes with higher fold changes and lower p-values are considered to be more differentially expressed.
 
 
-```r
+```{.r .code}
 # Volcano Plot
 res05$gene_status <- ifelse(
   res05$padj < 0.05, 
@@ -427,12 +427,12 @@ We can now identify significant differentially expressed genes based on statisti
 ### Significant Differentially Expressed Genes
 
 
-```r
+```{.r .code}
 sig_genes <- as.data.frame(res05[res05$padj < 0.05 & abs(res05$log2FoldChange) > 1, ])
 head(sig_genes)
 ```
 
-```
+```code
 ##                     baseMean log2FoldChange     lfcSE      stat       pvalue
 ## ENSMUSG00000000028  58.04568       1.120913 0.3821458  2.933207 3.354796e-03
 ## ENSMUSG00000000088 941.33601       2.056720 0.4921483  4.179066 2.927090e-05
@@ -456,12 +456,12 @@ We have identified a subset of genes that exhibit significant changes in express
 Genes displaying a positive log2FoldChange are classified as upregulated, indicating an increase in expression levels following exercise training
 
 
-```r
+```{.r .code}
 up_genes <- subset(sig_genes, log2FoldChange > 0)
 head(up_genes)
 ```
 
-```
+```code
 ##                      baseMean log2FoldChange     lfcSE     stat       pvalue
 ## ENSMUSG00000000028   58.04568       1.120913 0.3821458 2.933207 3.354796e-03
 ## ENSMUSG00000000088  941.33601       2.056720 0.4921483 4.179066 2.927090e-05
@@ -483,12 +483,12 @@ head(up_genes)
 Genes exhibiting a negative log2FoldChange are categorized as downregulated, suggesting a decrease in expression levels post-exercise.
 
 
-```r
+```{.r .code}
 down_genes <- subset(sig_genes,log2FoldChange < 0)
 head(down_genes)
 ```
 
-```
+```code
 ##                      baseMean log2FoldChange     lfcSE      stat       pvalue
 ## ENSMUSG00000000126   22.28138      -1.736166 0.4389466 -3.955302 7.643810e-05
 ## ENSMUSG00000000216  214.69887      -1.793448 0.5882681 -3.048691 2.298406e-03
@@ -514,7 +514,7 @@ head(down_genes)
 ### Top 10 Up Regulated Genes
 
 
-```r
+```{.r .code}
 top_up <- head(up_genes[order(up_genes$log2FoldChange, decreasing = TRUE), ], 10)
 top_up_exp <- assay(rld)[rownames(top_up), ]
 pheatmap(top_up_exp,
@@ -535,7 +535,7 @@ pheatmap(top_up_exp,
 ### Top 10 Down Regulated Genes
 
 
-```r
+```{.r .code}
 top_down <- head(down_genes[order(down_genes$log2FoldChange, decreasing = TRUE), ], 10)
 top_down_exp <- assay(rld)[rownames(top_down), ]
 pheatmap(top_down_exp,
@@ -556,7 +556,7 @@ pheatmap(top_down_exp,
 # Conclusion
 
 
-```r
+```{.r .code}
 n_total <- nrow(COUNTS)
 n_de_genes <- nrow(sig_genes)
 n_up_genes <- nrow(up_genes)
@@ -570,7 +570,7 @@ We analyzed a total of **52178 genes**, out of which **2478 genes** exhibited si
 We can now save these significant genes along with their regulation status in a separate file.
 
 
-```r
+```{.r .code}
 # Combine significant genes with their categories
 sig_genes$gene_status <- ifelse(sig_genes$log2FoldChange > 0, "Up-Regulated", "Down-Regulated")
 sig_genes$gene_id <- rownames(sig_genes)
@@ -585,11 +585,11 @@ write.table(sig_genes, file = "result/significant_DE_genes.csv", sep = ",", row.
 
 # Session Summary
 
-```r
+```{.r .code}
 sessionInfo()
 ```
 
-```
+```code
 ## R version 4.4.0 (2024-04-24)
 ## Platform: x86_64-pc-linux-gnu
 ## Running under: Arch Linux
@@ -630,35 +630,35 @@ sessionInfo()
 ## 
 ## loaded via a namespace (and not attached):
 ##  [1] DBI_1.2.2               bitops_1.0-7            deldir_2.0-4           
-##  [4] httr2_1.0.1             tcltk_4.4.0             biomaRt_2.59.1         
-##  [7] rlang_1.1.3             magrittr_2.0.3          compiler_4.4.0         
-## [10] RSQLite_2.3.6           GenomicFeatures_1.55.4  png_0.1-8              
-## [13] vctrs_0.6.5             pwalign_0.99.2          stringr_1.5.1          
-## [16] pkgconfig_2.0.3         crayon_1.5.2            fastmap_1.1.1          
-## [19] dbplyr_2.5.0            labeling_0.4.3          utf8_1.2.4             
-## [22] UCSC.utils_0.99.7       bit_4.0.5               xfun_0.43              
-## [25] zlibbioc_1.49.3         cachem_1.0.8            jsonlite_1.8.8         
-## [28] progress_1.2.3          blob_1.2.4              DelayedArray_0.29.9    
-## [31] jpeg_0.1-10             parallel_4.4.0          prettyunits_1.2.0      
-## [34] R6_2.5.1                bslib_0.7.0             stringi_1.8.3          
-## [37] rtracklayer_1.63.3      jquerylib_0.1.4         Rcpp_1.0.12            
-## [40] R.utils_2.12.3          Matrix_1.7-0            tidyselect_1.2.1       
-## [43] abind_1.4-5             yaml_2.3.8              codetools_0.2-20       
-## [46] hwriter_1.3.2.1         curl_5.2.1              lattice_0.22-6         
-## [49] tibble_3.2.1            withr_3.0.0             KEGGREST_1.43.1        
-## [52] evaluate_0.23           BiocFileCache_2.11.2    xml2_1.3.6             
-## [55] pillar_1.9.0            BiocManager_1.30.22     filelock_1.0.3         
-## [58] generics_0.1.3          RCurl_1.98-1.14         hms_1.1.3              
-## [61] munsell_0.5.1           scales_1.3.0            glue_1.7.0             
-## [64] tools_4.4.0             interp_1.1-6            BiocIO_1.13.1          
-## [67] locfit_1.5-9.9          XML_3.99-0.16.1         grid_4.4.0             
-## [70] latticeExtra_0.6-30     AnnotationDbi_1.65.2    colorspace_2.1-0       
-## [73] GenomeInfoDbData_1.2.12 restfulr_0.0.15         cli_3.6.2              
-## [76] rappdirs_0.3.3          fansi_1.0.6             S4Arrays_1.3.7         
-## [79] dplyr_1.1.4             gtable_0.3.5            R.methodsS3_1.8.2      
-## [82] sass_0.4.9              digest_0.6.35           aroma.light_3.33.0     
-## [85] SparseArray_1.3.7       farver_2.1.1            rjson_0.2.21           
-## [88] memoise_2.0.1           htmltools_0.5.8.1       R.oo_1.26.0            
-## [91] lifecycle_1.0.4         httr_1.4.7              statmod_1.5.0          
-## [94] bit64_4.0.5             MASS_7.3-60.2
+##  [4] httr2_1.0.1             biomaRt_2.59.1          rlang_1.1.3            
+##  [7] magrittr_2.0.3          compiler_4.4.0          RSQLite_2.3.6          
+## [10] GenomicFeatures_1.55.4  png_0.1-8               vctrs_0.6.5            
+## [13] pwalign_0.99.2          stringr_1.5.1           pkgconfig_2.0.3        
+## [16] crayon_1.5.2            fastmap_1.1.1           dbplyr_2.5.0           
+## [19] labeling_0.4.3          utf8_1.2.4              UCSC.utils_0.99.7      
+## [22] bit_4.0.5               xfun_0.43               zlibbioc_1.49.3        
+## [25] cachem_1.0.8            jsonlite_1.8.8          progress_1.2.3         
+## [28] blob_1.2.4              DelayedArray_0.29.9     jpeg_0.1-10            
+## [31] parallel_4.4.0          prettyunits_1.2.0       R6_2.5.1               
+## [34] bslib_0.7.0             stringi_1.8.3           rtracklayer_1.63.3     
+## [37] jquerylib_0.1.4         Rcpp_1.0.12             R.utils_2.12.3         
+## [40] Matrix_1.7-0            tidyselect_1.2.1        abind_1.4-5            
+## [43] yaml_2.3.8              codetools_0.2-20        hwriter_1.3.2.1        
+## [46] curl_5.2.1              lattice_0.22-6          tibble_3.2.1           
+## [49] withr_3.0.0             KEGGREST_1.43.1         evaluate_0.23          
+## [52] BiocFileCache_2.11.2    xml2_1.3.6              pillar_1.9.0           
+## [55] BiocManager_1.30.22     filelock_1.0.3          generics_0.1.3         
+## [58] RCurl_1.98-1.14         hms_1.1.3               munsell_0.5.1          
+## [61] scales_1.3.0            glue_1.7.0              tools_4.4.0            
+## [64] interp_1.1-6            BiocIO_1.13.1           locfit_1.5-9.9         
+## [67] XML_3.99-0.16.1         grid_4.4.0              latticeExtra_0.6-30    
+## [70] AnnotationDbi_1.65.2    colorspace_2.1-0        GenomeInfoDbData_1.2.12
+## [73] restfulr_0.0.15         cli_3.6.2               rappdirs_0.3.3         
+## [76] fansi_1.0.6             S4Arrays_1.3.7          dplyr_1.1.4            
+## [79] gtable_0.3.5            R.methodsS3_1.8.2       sass_0.4.9             
+## [82] digest_0.6.35           aroma.light_3.33.0      SparseArray_1.3.7      
+## [85] farver_2.1.1            rjson_0.2.21            memoise_2.0.1          
+## [88] htmltools_0.5.8.1       R.oo_1.26.0             lifecycle_1.0.4        
+## [91] httr_1.4.7              statmod_1.5.0           bit64_4.0.5            
+## [94] MASS_7.3-60.2
 ```

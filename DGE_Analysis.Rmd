@@ -23,7 +23,7 @@ In this study, we downloaded a publicly available gene expression dataset [GSE22
 
 # Install and Load Packages
 
-```{r warning=F, message=F}
+```{r warning=F, message=F, class.source="code", class.output="code"}
 # Install Required Packages (if not already installed)
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
@@ -60,13 +60,13 @@ library(ggrepel)
 
 We begin by importing the gene expression counts and sample information. The gene expression counts provide quantitative data on the expression levels of various genes across different samples, while the sample information helps us understand the experimental conditions associated with each sample.
 
-```{r warning=FALSE, message=FALSE}
+```{r warning=FALSE, message=FALSE, class.source="code", class.output="code"}
 # Import Gene Counts
 COUNTS <- read.csv(file="data/GSE227516_counts.csv", header=TRUE, row.names=1)
 head(COUNTS)
 ```
 
-```{r}
+```{r class.source="code", class.output="code"}
 # Import Sample Information
 META <- read.csv(file="data/sample_information.csv", header=TRUE)
 head(META)
@@ -76,13 +76,13 @@ head(META)
 
 Before diving into the analysis, we perform some basic data exploration and cleaning steps. This involves inspecting the structure of the imported data, and ensuring that the data are formatted correctly for further analysis.
 
-```{r}
+```{r class.source="code", class.output="code"}
 # Reorder columns
 COUNTS <- COUNTS[, c("P1", paste0("P", 2:9), "P10")]
 head(COUNTS)
 ```
 
-```{r}
+```{r class.source="code", class.output="code"}
 # Rounding off and convert to matrix
 COUNTS <- round(COUNTS)
 COUNTS <- as.matrix(COUNTS)
@@ -90,7 +90,7 @@ COUNTS <- as.matrix(COUNTS)
 
 Dimensions of `COUNTS` matrix are : **`r nrow(COUNTS)`** Rows x **`r ncol(COUNTS)`** Columns
 
-```{r}
+```{r class.source="code", class.output="code"}
 # List unique sample conditions
 unique(META$condition)
 ```
@@ -101,14 +101,14 @@ unique(META$condition)
 
 We create a DESeq2 dataset from the gene expression counts and sample information. This step involves organizing the data into a format suitable for DESeq2 analysis, specifying the experimental design.
 
-```{r warning=FALSE, message=FALSE}
+```{r warning=FALSE, message=FALSE, class.source="code", class.output="code"}
 # Creating DESeq2 Dataset
 dds <- DESeqDataSetFromMatrix(countData = COUNTS, 
                               colData=META, 
                               design=~condition)
 ```
 
-```{r}
+```{r class.source="code", class.output="code"}
 dim(dds)
 ```
 
@@ -116,7 +116,7 @@ dim(dds)
 
 To improve the quality of our analysis and focus on genes with sufficient expression levels, we filter out genes with low counts. This step helps reduce noise and computational burden in downstream analyses.
 
-```{r}
+```{r class.source="code", class.output="code"}
 # Filtering low count genes
 threshold <- 10
 dds <- dds[ rowMeans(counts(dds)) >= threshold,]
@@ -128,7 +128,7 @@ The dimensions of the filtered dataset is: **`r nrow(dds)`** Rows x **`r ncol(dd
 
 We perform differential expression analysis using DESeq2, which includes estimating size factors and dispersion, and fitting the negative binomial model.
 
-```{r warning=FALSE, message=FALSE}
+```{r warning=FALSE, message=FALSE, class.source="code", class.output="code"}
 # DESeq2 Analysis
 prdds <- DESeq(dds)
 prdds
@@ -138,14 +138,14 @@ prdds
 
 Normalization and transformation are crucial steps to account for systematic biases and heterogeneity in sequencing data. We apply size factor estimation, regularized log transformation (rlog), and variance stabilizing transformation (VST) to normalize and transform the expression data. We will perform these steps and visually compare the results to understand their impact on the data.
 
-```{r}
+```{r class.source="code", class.output="code"}
 # Normalization
 norm_counts <- counts(prdds, normalized = TRUE)
 norm_counts <- as.data.frame(norm_counts)
 head(norm_counts)
 ```
 
-```{r}
+```{r class.source="code", class.output="code"}
 # Transformation
 mks <- estimateSizeFactors(dds)
 rld <- rlogTransformation(prdds, blind = FALSE)
@@ -156,7 +156,7 @@ vsd <- varianceStabilizingTransformation(dds, blind=FALSE)
 
 Let's compare the distributions of the raw counts, rlog transformed data, and VST transformed data using scatter plots and histograms.
 
-```{r scatter_plots, dev='png', fig.show='hide'}
+```{r scatter_plots, dev='png', fig.show='hide', class.source="code", class.output="code"}
 # Scatter Plots Comparison
 par(mfrow=c(1, 3))
 lims <- c(-2, 20)
@@ -168,7 +168,7 @@ plot(assay(vsd)[,1:2], pch=16, cex=0.3, main="VST", xlim=lims, ylim=lims)
 ![](`r knitr::fig_chunk('scatter_plots', 'png')`)
 
 
-```{r hist_plots, dev='png', fig.show='hide'}
+```{r hist_plots, dev='png', fig.show='hide', class.source="code", class.output="code"}
 # Histograms Comparison
 par(mfrow=c(1, 3))
 hist(counts(mks))
@@ -187,7 +187,7 @@ Before conducting differential expression analysis, we perform exploratory data 
 
 ### Heatmap of sample-to-sample distances
 
-```{r s2s_heatmap_plot, dev='png', fig.show='hide'}
+```{r s2s_heatmap_plot, dev='png', fig.show='hide', class.source="code", class.output="code"}
 # Sample-to-sample distances
 sample_dist <- dist(t(assay(rld)))
 sample_dist_matrix <- as.matrix(sample_dist)
@@ -204,7 +204,7 @@ In this heatmap, each row and column represents a sample, and the color intensit
 
 ### PCA Plot
 
-```{r pca_plot, dev='png', fig.show='hide', message=FALSE, warning=FALSE}
+```{r pca_plot, dev='png', fig.show='hide', message=FALSE, warning=FALSE, class.source="code", class.output="code"}
 # PCA Plot
 pca_data <- plotPCA(rld, intgroup = c("condition"), returnData = TRUE)
 ggplot(pca_data, aes(x = PC1, y = PC2)) +
@@ -224,7 +224,7 @@ We can conclude that ***exercise induces a strong and consistent change in gene 
 
 In the Dispersion Plot, the x-axis represents the mean of normalized counts, which is a measure of how much a gene is expressed on average across samples. The y-axis represents dispersion, which is a measure of how much the counts vary across samples. The red curve in the plot is a fitted model that tries to explain the relationship between the mean of normalized counts and dispersion. 
 
-```{r dispersion_plot, dev='png', fig.show='hide', }
+```{r dispersion_plot, dev='png', fig.show='hide', class.source="code", class.output="code"}
 # Dispersion Plot
 plotDispEsts(prdds, main = "Dispersion plot", 
   genecol="gray20", fitcol="red", 
@@ -240,12 +240,12 @@ The dispersion plot shows the expected behavior. At low gene counts, the dispers
 
 Using DESeq2, we conduct differential expression testing to identify genes that exhibit significant changes in expression levels between experimental conditions. We set a significance threshold (alpha) and perform statistical tests to determine differential expression, taking into account factors such as fold change and adjusted p-values.
 
-```{r}
+```{r class.source="code", class.output="code"}
 # DESeq2 Result
 res05 <- results(prdds, alpha = 0.05)
 res05 <- na.omit(res05)
 ```
-```{r}
+```{r class.source="code", class.output="code"}
 # Order by adjusted p-value
 res05ordered <- res05[order(res05$padj),]
 head(as.data.frame(res05ordered))
@@ -261,7 +261,7 @@ The MA plot shows the relationship between the mean of normalized counts (averag
 
 The grey dots represent genes that are not statistically significant (adjusted p-value > 0.05), while the blue dots represent genes that are statistically significant (adjusted p-value <= 0.05).
 
-```{r ma_plot, dev='png', fig.show='hide', }
+```{r ma_plot, dev='png', fig.show='hide', class.source="code", class.output="code"}
 # MA Plot
 DESeq2::plotMA(
   res05, 
@@ -283,7 +283,7 @@ Based on the plot, it appears that there are **more genes that are up-regulated 
 
 The x-axis of a volcano plot shows the log2 fold change of a gene, which is the magnitude of the change in expression between the two conditions. The y-axis shows the -log10 of the adjusted p-value, which is a measure of the statistical significance of the change in expression. Genes with higher fold changes and lower p-values are considered to be more differentially expressed.
 
-```{r volcano_plot, dev='png', fig.show='hide', }
+```{r volcano_plot, dev='png', fig.show='hide', class.source="code", class.output="code"}
 # Volcano Plot
 res05$gene_status <- ifelse(
   res05$padj < 0.05, 
@@ -327,7 +327,7 @@ We can now identify significant differentially expressed genes based on statisti
 
 ### Significant Differentially Expressed Genes
 
-```{r}
+```{r class.source="code", class.output="code"}
 sig_genes <- as.data.frame(res05[res05$padj < 0.05 & abs(res05$log2FoldChange) > 1, ])
 head(sig_genes)
 ```
@@ -338,7 +338,7 @@ We have identified a subset of genes that exhibit significant changes in express
 
 Genes displaying a positive log2FoldChange are classified as upregulated, indicating an increase in expression levels following exercise training
 
-```{r}
+```{r class.source="code", class.output="code"}
 up_genes <- subset(sig_genes, log2FoldChange > 0)
 head(up_genes)
 ```
@@ -347,7 +347,7 @@ head(up_genes)
 
 Genes exhibiting a negative log2FoldChange are categorized as downregulated, suggesting a decrease in expression levels post-exercise.
 
-```{r}
+```{r class.source="code", class.output="code"}
 down_genes <- subset(sig_genes,log2FoldChange < 0)
 head(down_genes)
 ```
@@ -360,7 +360,7 @@ head(down_genes)
 
 ### Top 10 Up Regulated Genes
 
-```{r upreg_heatmap, dev='png', fig.show='hide', }
+```{r upreg_heatmap, dev='png', fig.show='hide', class.source="code", class.output="code"}
 top_up <- head(up_genes[order(up_genes$log2FoldChange, decreasing = TRUE), ], 10)
 top_up_exp <- assay(rld)[rownames(top_up), ]
 pheatmap(top_up_exp,
@@ -380,7 +380,7 @@ pheatmap(top_up_exp,
 
 ### Top 10 Down Regulated Genes
 
-```{r downreg_heatmap, dev='png', fig.show='hide', }
+```{r downreg_heatmap, dev='png', fig.show='hide', class.source="code", class.output="code"}
 top_down <- head(down_genes[order(down_genes$log2FoldChange, decreasing = TRUE), ], 10)
 top_down_exp <- assay(rld)[rownames(top_down), ]
 pheatmap(top_down_exp,
@@ -400,7 +400,7 @@ pheatmap(top_down_exp,
 
 # Conclusion
 
-```{r}
+```{r class.source="code", class.output="code"}
 n_total <- nrow(COUNTS)
 n_de_genes <- nrow(sig_genes)
 n_up_genes <- nrow(up_genes)
@@ -413,7 +413,7 @@ We analyzed a total of **`r n_total` genes**, out of which **`r n_de_genes` gene
 
 We can now save these significant genes along with their regulation status in a separate file.
 
-```{r}
+```{r class.source="code", class.output="code"}
 # Combine significant genes with their categories
 sig_genes$gene_status <- ifelse(sig_genes$log2FoldChange > 0, "Up-Regulated", "Down-Regulated")
 sig_genes$gene_id <- rownames(sig_genes)
@@ -427,6 +427,6 @@ write.table(sig_genes, file = "result/significant_DE_genes.csv", sep = ",", row.
 ```
 
 # Session Summary
-```{r}
+```{r class.source="code", class.output="code"}
 sessionInfo()
 ```
